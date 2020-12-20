@@ -11,13 +11,13 @@ import Test.QuickCheck
 -- moment in care acel nod va fi radacina arborelui huffmann corespunzator
 
 data HuffmannTree = EmptyTree | TreeNode { freq :: Int, 
-                                           char :: Char, 
+                                           char :: Maybe Char, 
                                            leftTree :: HuffmannTree, 
                                            rightTree :: HuffmannTree } deriving (Eq, Show)
 
 -- daca subarborele curent contine un nod(nodul) cu exact 1 fiu => Partial
 -- daca subarborele curent contine noduri cu 0 sau 2 fii => Full
-data State = Full | Partial deriving (Eq)
+data State = Full | Partial deriving (Eq, Show)
 
 combine :: State -> State -> State
 combine Full Partial = Partial
@@ -46,11 +46,23 @@ data Heap = EmptyHeap | HeapNode { hTree :: HuffmannTree,
                                    size :: Int,
                                    state :: State } deriving(Eq)
 
+getVal :: Maybe a -> a
+getVal (Just val) = val
+
+-- afisez ca un array
+instance Show Heap where
+    show EmptyHeap = "null "
+    show HeapNode {hTree = ht,
+                   leftHeap = lh,
+                   rightHeap = rh,
+                   size = s,
+                   state = st} = show (freq ht) ++ "(" ++ (if char ht == Nothing then "" else [getVal (char ht)]) ++ ")" ++ show st ++ " " ++ show lh ++ show rh
+
 insertInHeap :: Heap -> (Char, Int) -> Heap
 
 -- cand inserez nodul intr-o pozitie nula
 insertInHeap EmptyHeap (ch, fr) = HeapNode {hTree = TreeNode {freq = fr, 
-                                                              char = ch,
+                                                              char = Just ch,
                                                               leftTree = EmptyTree,
                                                               rightTree = EmptyTree},
                                             leftHeap = EmptyHeap,
@@ -173,6 +185,8 @@ heapify' :: Heap -> [(Char, Int)] -> Heap
 heapify' = foldl insertInHeap
 
 
+
+testt l = heapify EmptyHeap l == heapify' EmptyHeap l
 
 {-
 data Dt = Dta {a :: Int, b :: Int} deriving (Eq, Show)
