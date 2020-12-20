@@ -10,12 +10,10 @@ import Test.QuickCheck
 -- fac asta pana raman cu un singur nod, 
 -- moment in care acel nod va fi radacina arborelui huffmann corespunzator
 
-freqTable = [('a',45),('b',13),('c',12),('d',16),('e',9),('f',5)]
-
 data HuffmannTree = EmptyTree | TreeNode { freq :: Int, 
                                            char :: Char, 
                                            leftTree :: HuffmannTree, 
-                                           rightTree :: HuffmannTree }
+                                           rightTree :: HuffmannTree } deriving (Eq, Show)
 
 -- daca subarborele curent contine un nod(nodul) cu exact 1 fiu => Partial
 -- daca subarborele curent contine noduri cu 0 sau 2 fii => Full
@@ -46,7 +44,7 @@ data Heap = EmptyHeap | HeapNode { hTree :: HuffmannTree,
                                    leftHeap :: Heap,
                                    rightHeap :: Heap,
                                    size :: Int,
-                                   state :: State }
+                                   state :: State } deriving(Eq)
 
 insertInHeap :: Heap -> (Char, Int) -> Heap
 
@@ -171,6 +169,8 @@ heapify :: Heap -> [(Char, Int)] -> Heap
 heapify alreadyHeap [] = alreadyHeap
 heapify alreadyHeap (x:xs) = heapify (insertInHeap alreadyHeap x) xs
 
+heapify' :: Heap -> [(Char, Int)] -> Heap
+heapify' = foldl insertInHeap
 
 
 
