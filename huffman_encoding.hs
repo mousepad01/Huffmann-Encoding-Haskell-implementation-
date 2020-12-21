@@ -1,6 +1,6 @@
 import Test.QuickCheck
 
--- coduri huffmann
+-- coduri Huffman
 -- ideea de implementare:
 -- pe scurt, voi avea un heap in care fiecare nod este radacina unui arbore binar
 -- initial formez heap ul cu noduri care sunt frecventele caracterelor,
@@ -8,16 +8,20 @@ import Test.QuickCheck
 -- la un anumit pas extrag de doua ori minimul
 -- unesc cele doua noduri corespunzator, si adaug noul nod obtinut din nou in heap
 -- fac asta pana raman cu un singur nod, 
--- moment in care acel nod va fi radacina arborelui huffmann corespunzator
+-- moment in care acel nod va fi radacina arborelui Huffman corespunzator
 
-data HuffmannTree = EmptyTree | TreeNode { freq :: Int, 
-                                           char :: Maybe Char, 
-                                           leftTree :: HuffmannTree, 
-                                           rightTree :: HuffmannTree } deriving (Eq, Show)
+data HuffmanTree = EmptyTree | TreeNode { freq :: Int, 
+                                          char :: Maybe Char, 
+                                          leftTree :: HuffmanTree, 
+                                          rightTree :: HuffmanTree } deriving (Eq)
 
 -- daca subarborele curent contine un nod(nodul) cu exact 1 fiu => Partial
 -- daca subarborele curent contine noduri cu 0 sau 2 fii => Full
 data State = Full | Partial deriving (Eq, Show)
+
+instance Show HuffmanTree where
+    show EmptyTree = "null"
+    show node = "(" ++ show (freq node) ++ (if char node == Nothing then "" else "," ++ show (getVal(char node))) ++ ") " ++ show (leftTree node) ++ " " ++ show (rightTree node)
 
 combine :: State -> State -> State
 combine Full Partial = Partial
@@ -40,7 +44,7 @@ combine Full Full = Full
 --
 -- restul cazurilor sunt imposibile datorita proprietatilor de Heap
 
-data Heap = EmptyHeap | HeapNode { hTree :: HuffmannTree,
+data Heap = EmptyHeap | HeapNode { hTree :: HuffmanTree,
                                    leftHeap :: Heap,
                                    rightHeap :: Heap,
                                    size :: Int,
@@ -62,24 +66,17 @@ instance Show Heap where
 --                        INSERARE
 -----------------------------------------------------------------
 
-insertInHeap :: Heap -> (Char, Int) -> Heap
+insertInHeap :: Heap -> Heap -> Heap
 
 -- cand inserez nodul intr-o pozitie nula
-insertInHeap EmptyHeap (ch, fr) = HeapNode {hTree = TreeNode {freq = fr, 
-                                                              char = Just ch,
-                                                              leftTree = EmptyTree,
-                                                              rightTree = EmptyTree},
-                                            leftHeap = EmptyHeap,
-                                            rightHeap = EmptyHeap,
-                                            size = 1,
-                                            state = Full}
+insertInHeap EmptyHeap toInsert = toInsert
 
 -- cand tatal pozitiei de inserat are ambii fii nuli
 insertInHeap HeapNode {hTree = huftree,
                        leftHeap = EmptyHeap, 
                        rightHeap = EmptyHeap, 
                        size = 1,
-                       state = Full} (ch, fr) 
+                       state = Full} toInsert
 
     | thisFreq <= fr = HeapNode {hTree = huftree,
                                  leftHeap = updatedHeap,
@@ -95,15 +92,17 @@ insertInHeap HeapNode {hTree = huftree,
                                     size = 2,
                                     state = Partial}
     where
-        updatedHeap = insertInHeap EmptyHeap (ch, fr)
+        updatedHeap = insertInHeap EmptyHeap toInsert
+
         thisFreq = freq huftree
+        fr = freq (hTree toInsert)
 
 -- cand tatal pozitiei de inserat are doar fiul drept nenul
 insertInHeap HeapNode {hTree = huftree,
                        leftHeap = lheap, 
                        rightHeap = EmptyHeap, 
                        size = 2,
-                       state = Partial} (ch, fr) 
+                       state = Partial} toInsert
 
     | thisFreq <= fr = HeapNode {hTree = huftree,
                                  leftHeap = lheap,
@@ -120,15 +119,17 @@ insertInHeap HeapNode {hTree = huftree,
                                     size = 3,
                                     state = Full}
     where
-        updatedHeap = insertInHeap EmptyHeap (ch, fr)
+        updatedHeap = insertInHeap EmptyHeap toInsert
+
         thisFreq = freq huftree
+        fr = freq (hTree toInsert)
 
 -- cand ambii fii ai nodului curent sunt nenuli si trebuie sa cobor
 insertInHeap HeapNode {hTree = huftree,
                        leftHeap = lheap, 
                        rightHeap = rheap, 
                        size = s,
-                       state = st} (ch, fr) 
+                       state = st} toInsert
 
     -- aici fac reordonarea corespunzator (daca e cazul), si returnez heap ul updatat
     | thisFreq <= newFreq && whichUpdated == "left" = HeapNode {hTree = huftree,
@@ -173,8 +174,8 @@ insertInHeap HeapNode {hTree = huftree,
             | state lheap == Partial && state rheap == Partial = "Imposibil2"
 
         updatedHeap 
-            | whichUpdated == "left"  = insertInHeap lheap (ch, fr)
-            | whichUpdated == "right" = insertInHeap rheap (ch, fr)
+            | whichUpdated == "left"  = insertInHeap lheap toInsert
+            | whichUpdated == "right" = insertInHeap rheap toInsert
         
         sizeOfUpdated = size updatedHeap
         stateOfUpdated = state updatedHeap
@@ -192,7 +193,7 @@ insertInHeap HeapNode {hTree = huftree,
 -- functia returneaza (fst) -> heap-ul modificat dupa extragere, 
 --                    (snd) -> arborele huffman al elementului extras
 
-lastFromHeap :: Heap -> (Heap, HuffmannTree)
+lastFromHeap :: Heap -> (Heap, HuffmanTree)
 
 -- cazul cand heap ul este gol (apelul nu prea are sens)
 lastFromHeap EmptyHeap = (EmptyHeap, EmptyTree)
@@ -358,7 +359,7 @@ repair HeapNode {hTree = huftree,
 --                     EXTRAGERE MINIM 
 -----------------------------------------------------------------
 
-extractMin :: Heap -> (Heap, HuffmannTree)
+extractMin :: Heap -> (Heap, HuffmanTree)
 
 -- desi functiile lastFromHeap si repair trateaza toate cazurile
 -- voi trata aici direct cazurile particulare de baza, pentru simplitate
@@ -382,13 +383,106 @@ extractMin heap = (repair (newHeap {hTree = extracted}), hTree heap)
 --                     HEAP DIN LISTA
 -----------------------------------------------------------------
 
-heapify :: Heap -> [(Char, Int)] -> Heap
-heapify = foldl insertInHeap
+listTransformation :: [(Char, Int)] -> [Heap]
+listTransformation [] = []
+listTransformation ((ch, fr):xs) = (HeapNode {hTree = TreeNode {freq = fr, 
+                                                               char = Just ch,
+                                                               leftTree = EmptyTree,
+                                                               rightTree = EmptyTree},
+                                              leftHeap = EmptyHeap,
+                                              rightHeap = EmptyHeap,
+                                              size = 1,
+                                              state = Full}) : listTransformation xs
 
-makeHeap :: [(Char, Int)] -> Heap
-makeHeap = heapify EmptyHeap
+heapify :: [(Char, Int)] -> Heap
+heapify frList = heapifyNodeList nodeList
+    where
+        nodeList = listTransformation frList
+
+        heapifyNodeList [] = EmptyHeap
+        heapifyNodeList (h:hs) = insertInHeap (heapifyNodeList hs) h
 
 -----------------------------------------------------------------
+--            CODURILE HUFFMAN SI FUNCTIILE ASOCIATE
+-----------------------------------------------------------------
+
+createHuffmanTree :: Heap -> HuffmanTree
+
+-- cand nu am nici un nod (cazul are loc doar daca primeste un EmptyHeap ca argument la inceput)
+createHuffmanTree EmptyHeap = EmptyTree
+
+-- cand am un singur nod (ramas) in heap, care contine intregul arbore huffman cautat
+createHuffmanTree HeapNode {hTree = huftree,
+                            leftHeap = EmptyHeap,
+                            rightHeap = EmptyHeap,
+                            size = 1,
+                            state = Full} = huftree
+
+-- cand heap ul are >= 2 noduri in el
+createHuffmanTree heap = createHuffmanTree newHeap
+    where
+
+        (fstNewHeap, fstExtracted) = extractMin heap
+        (sndNewHeap, sndExtracted) = extractMin fstNewHeap
+
+        mergedTree = TreeNode {freq = freq fstExtracted + freq sndExtracted,
+                               char = Nothing,
+                               leftTree = fstExtracted,
+                               rightTree = sndExtracted}
+
+        newHeap = insertInHeap sndNewHeap (HeapNode {hTree = mergedTree,
+                                                     leftHeap = EmptyHeap,
+                                                     rightHeap = EmptyHeap,
+                                                     size = 1,
+                                                     state = Full})
+
+getHuffmanTree :: [(Char, Int)] -> HuffmanTree
+getHuffmanTree freqList = createHuffmanTree (heapify freqList)
+
+
+getHuffmanCodes :: [(Char, Int)] -> [(Char, String)]
+getHuffmanCodes [] = error "Nu se pot calcula coduri pentru multimea vida!"
+getHuffmanCodes [(onlyCh, fr)] = [(onlyCh, "0")]
+getHuffmanCodes freqList = sort (extractCodes "" (getHuffmanTree freqList)) (\p1 p2 -> fst p1 < fst p2)
+    where
+        extractCodes :: String -> HuffmanTree -> [(Char, String)]
+        extractCodes _ EmptyTree = []
+        extractCodes codePreffix tree 
+            | char tree == Nothing = extractedCodes
+            | otherwise            = (getVal (char tree), codePreffix) : extractedCodes
+            where
+                extractedCodes = extractCodes (codePreffix ++ "0") (leftTree tree) ++ extractCodes (codePreffix ++ "1") (rightTree tree)
+        
+-----------------------------------------------------------------
+--                     FUNCTIE DE SORTARE
+-----------------------------------------------------------------
+
+sort:: [a] -> (a -> a -> Bool) -> [a]
+sort [] _ = []
+sort [a] _ = [a]
+sort l comp = intercalate (sort first_half comp) (sort second_half comp)
+    where
+        first_half  = slice l 0 (length l `div` 2)
+        second_half = slice l (length l `div` 2) (length l)
+
+        intercalate [] l2 = l2
+        intercalate l1 [] = l1
+        intercalate (x:xs) (y:ys) 
+            | comp x y  = x : intercalate xs (y:ys)
+            | otherwise = y : intercalate (x:xs) ys
+
+        slice [] _ _ = []
+        slice (x:xs) i j 
+            | i > 0      = slice xs (i - 1) (j - 1)
+            | i == j - 1 = [x]
+            | i == j     = []
+            | j > 0      = x : slice xs i (j - 1)
+
+
+
+
+
+
 
 
 
