@@ -1,4 +1,3 @@
-import Test.QuickCheck
 
 -- coduri Huffman
 -- ideea de implementare:
