@@ -56,7 +56,11 @@ instance Show Heap where
                    leftHeap = lh,
                    rightHeap = rh,
                    size = s,
-                   state = st} = show (freq ht) ++ "(" ++ (if char ht == Nothing then "" else [getVal (char ht)]) ++ ")" ++ show st ++ " " ++ show lh ++ show rh
+                   state = st} = show (freq ht) ++ "(" ++ (if char ht == Nothing then "" else [getVal (char ht)]) ++ ")" ++ show st ++ "," ++ show s ++ " " ++ show lh ++ show rh
+
+-----------------------------------------------------------------
+--                        INSERARE
+-----------------------------------------------------------------
 
 insertInHeap :: Heap -> (Char, Int) -> Heap
 
@@ -136,26 +140,26 @@ insertInHeap HeapNode {hTree = huftree,
     | thisFreq <= newFreq && whichUpdated == "right" = HeapNode {hTree = huftree,
                                                                  leftHeap = lheap,
                                                                  rightHeap = updatedHeap,
-                                                                 size = 1 + size updatedHeap + size rheap,
+                                                                 size = 1 + size updatedHeap + size lheap,
                                                                  state = state lheap `combine` state updatedHeap}
 
     | thisFreq > newFreq && whichUpdated == "left" = updatedHeap {leftHeap = HeapNode {hTree = huftree,
                                                                                        leftHeap = leftOfUpdated,
                                                                                        rightHeap = rightOfUpdated,
-                                                                                       size = 1 + size leftOfUpdated + size rightOfUpdated,
-                                                                                       state = state leftOfUpdated `combine` state rightOfUpdated},
+                                                                                       size = sizeOfUpdated,
+                                                                                       state = stateOfUpdated},
                                                                   rightHeap = rheap,
-                                                                  size = 1 + 1 + size leftOfUpdated + size rightOfUpdated + size rheap,
-                                                                  state = state leftOfUpdated `combine` state rightOfUpdated `combine` state rheap}
+                                                                  size = 1 + sizeOfUpdated + size rheap,
+                                                                  state = stateOfUpdated `combine` state rheap}
 
     | thisFreq > newFreq && whichUpdated == "right" = updatedHeap {leftHeap = lheap,
                                                                    rightHeap = HeapNode {hTree = huftree,
                                                                                          leftHeap = leftOfUpdated,
                                                                                          rightHeap = rightOfUpdated,
-                                                                                         size = 1 + size leftOfUpdated + size rightOfUpdated,
-                                                                                         state = state leftOfUpdated `combine` state rightOfUpdated},
-                                                                   size = 1 + 1 + size leftOfUpdated + size rightOfUpdated + size lheap,
-                                                                   state = state leftOfUpdated `combine` state rightOfUpdated `combine` state lheap}
+                                                                                         size = sizeOfUpdated,
+                                                                                         state = stateOfUpdated},
+                                                                   size = 1 + sizeOfUpdated + size lheap,
+                                                                   state = stateOfUpdated `combine` state lheap}
     where
         -- aici in where lansez recursiv insertia conrespunzator, in functie de state si size
         thisFreq = freq huftree
@@ -165,10 +169,15 @@ insertInHeap HeapNode {hTree = huftree,
             | state lheap == Full && state rheap == Full && size lheap > size rheap  = "right"
             | state lheap == Full && state rheap == Partial = "right"
             | state lheap == Partial && state rheap == Full = "left"
+            | state lheap == Full && state rheap == Full && size lheap < size rheap = error "Imposibil"
+            | state lheap == Partial && state rheap == Partial = "Imposibil2"
 
         updatedHeap 
             | whichUpdated == "left"  = insertInHeap lheap (ch, fr)
             | whichUpdated == "right" = insertInHeap rheap (ch, fr)
+        
+        sizeOfUpdated = size updatedHeap
+        stateOfUpdated = state updatedHeap
 
         newFreq = freq (hTree updatedHeap)
 
@@ -176,17 +185,237 @@ insertInHeap HeapNode {hTree = huftree,
         leftOfUpdated = leftHeap updatedHeap
         rightOfUpdated = rightHeap updatedHeap
 
+-----------------------------------------------------------------
+--                 STERGERE ULTIMUL ELEMENT
+-----------------------------------------------------------------
+
+-- functia returneaza (fst) -> heap-ul modificat dupa extragere, 
+--                    (snd) -> arborele huffman al elementului extras
+
+lastFromHeap :: Heap -> (Heap, HuffmannTree)
+
+-- cazul cand heap ul este gol (apelul nu prea are sens)
+lastFromHeap EmptyHeap = (EmptyHeap, EmptyTree)
+
+-- cazul cand am doar radacina
+lastFromHeap HeapNode {hTree = huftree,
+                       leftHeap = EmptyHeap,
+                       rightHeap = EmptyHeap,
+                       size = 1,
+                       state = Full} = (EmptyHeap, huftree)
+
+-- cazul cand nodul de extras este fiul stang al heap ului curent (partial)
+lastFromHeap HeapNode {hTree = huftree,
+                       leftHeap = lheap,
+                       rightHeap = EmptyHeap,
+                       size = 2,
+                       state = Partial} = (HeapNode {hTree = huftree,
+                                                     leftHeap = EmptyHeap,
+                                                     rightHeap = EmptyHeap,
+                                                     size = 1,
+                                                     state = Full},
+                                           hTree lheap)
+
+-- cazul cand nodul de extras este fiul drept al nodului curent
+lastFromHeap HeapNode {hTree = huftree,
+                       leftHeap = lheap,
+                       rightHeap = rheap,
+                       size = 3,
+                       state = Full} = (HeapNode {hTree = huftree,
+                                                  leftHeap = lheap,
+                                                  rightHeap = EmptyHeap,
+                                                  size = 2,
+                                                  state = Partial},
+                                        hTree rheap)
+
+-- cazul cand nodul curent are ambii fii nenuli, si cobor in continuare
+lastFromHeap HeapNode {hTree = huftree,
+                       leftHeap = lheap,
+                       rightHeap = rheap,
+                       size = s,
+                       state = st} 
+
+    | whichUpdated == "left" = (HeapNode {hTree = huftree,
+                                          leftHeap = updatedHeap,
+                                          rightHeap = rheap,
+                                          size = s - 1,
+                                          state = state rheap `combine` state updatedHeap},
+                                extractedTree)
+
+    | whichUpdated == "right" = (HeapNode {hTree = huftree,
+                                           leftHeap = lheap,
+                                           rightHeap = updatedHeap,
+                                           size = s - 1,
+                                           state = state lheap `combine` state updatedHeap},
+                                 extractedTree)
+    where
+        -- cobor in functie de size si state al subarborilor stangi si drepti
+        whichUpdated 
+            | state lheap == Full && state rheap == Full && size lheap == size rheap = "right"
+            | state lheap == Full && state rheap == Full && size lheap > size rheap  = "left"
+            | state lheap == Full && state rheap == Partial = "right"
+            | state lheap == Partial && state rheap == Full = "left"
+            | state lheap == Full && state rheap == Full && size lheap < size rheap = error "Imposibil"
+            | state lheap == Partial && state rheap == Partial = "Imposibil2"
+
+        returnedPair
+            | whichUpdated == "left"  = lastFromHeap lheap 
+            | whichUpdated == "right" = lastFromHeap rheap 
+
+        (updatedHeap, extractedTree) = returnedPair
+        
+        sizeOfUpdated = size updatedHeap
+        stateOfUpdated = state updatedHeap
+
+-----------------------------------------------------------------
+--                   HEAPIFY PE RADACINA
+-----------------------------------------------------------------
+
+repair :: Heap -> Heap
+
+-- cand nu am nici un nod
+repair EmptyHeap = EmptyHeap
+
+-- cand am doar radacina / cand am ajuns la un nod cu ambii fii nuli, nu fac practic nimic
+repair HeapNode {hTree = huftree,
+                leftHeap = EmptyHeap,
+                rightHeap = EmptyHeap,
+                size = 1,
+                state = Full} = HeapNode {hTree = huftree,
+                                          leftHeap = EmptyHeap,
+                                          rightHeap = EmptyHeap,
+                                          size = 1,
+                                          state = Full}
+
+-- cand nodul de recalibrat curent are doar fiul stang nenul
+repair HeapNode {hTree = huftree,
+                 leftHeap = lheap,
+                 rightHeap = EmptyHeap,
+                 size = 2,
+                 state = Partial}
+    
+    | freq huftree > freq lhuftree = HeapNode {hTree = lhuftree,
+                                               leftHeap = HeapNode {hTree = huftree,
+                                                                    leftHeap = EmptyHeap,
+                                                                    rightHeap = EmptyHeap,
+                                                                    size = 1,
+                                                                    state = Full},
+                                               rightHeap = EmptyHeap,
+                                               size = 2,
+                                               state = Partial}
+
+    | freq huftree <= freq lhuftree = HeapNode {hTree = huftree,
+                                                leftHeap = lheap,
+                                                rightHeap = EmptyHeap,
+                                                size = 2,
+                                                state = Partial}
+    where
+        lhuftree = hTree lheap
+
+-- cand nodul de recalibrat curent are ambii fii nenuli
+-- daca e cazul, propag recalibrarea mai departe
+repair HeapNode {hTree = huftree,
+                 leftHeap = lheap,
+                 rightHeap = rheap,
+                 size = s,
+                 state = st}
+
+    | freqCase == "isHeap" = HeapNode {hTree = huftree,
+                                       leftHeap = lheap,
+                                       rightHeap = rheap,
+                                       size = s,
+                                       state = st}
+    
+    | freqCase == "repairLeft" = HeapNode {hTree = lhuftree,
+                                           leftHeap = repairedHeap,
+                                           rightHeap = rheap,
+                                           size = s,
+                                           state = st}
+
+    | freqCase == "repairRight" = HeapNode {hTree = rhuftree,
+                                            leftHeap = lheap,
+                                            rightHeap = repairedHeap,
+                                            size = s,
+                                            state = st}
+
+    where
+
+        lhuftree = hTree lheap
+        rhuftree = hTree rheap
+
+        freqCase
+            | freq huftree <= freq lhuftree && freq huftree <= freq rhuftree = "isHeap"
+            | freq huftree <= freq lhuftree && freq huftree > freq rhuftree  = "repairRight"
+            | freq huftree > freq lhuftree && freq huftree <= freq rhuftree  = "repairLeft"
+            | freq huftree > freq lhuftree && freq huftree > freq rhuftree && freq lhuftree <= freq rhuftree = "repairLeft"
+            | freq huftree > freq lhuftree && freq huftree > freq rhuftree && freq lhuftree > freq rhuftree  = "repairRight" 
+
+        repairedHeap
+            | freqCase == "repairLeft"  = repair (lheap {hTree = huftree})
+            | freqCase == "repairRight" = repair (rheap {hTree = huftree})
+
+-----------------------------------------------------------------
+--                     EXTRAGERE MINIM 
+-----------------------------------------------------------------
+
+extractMin :: Heap -> (Heap, HuffmannTree)
+
+-- desi functiile lastFromHeap si repair trateaza toate cazurile
+-- voi trata aici direct cazurile particulare de baza, pentru simplitate
+
+-- cand nu am nici un nod in heap
+extractMin EmptyHeap = (EmptyHeap, EmptyTree)
+
+-- cand am doar radacina
+extractMin HeapNode {hTree = huftree,
+                     leftHeap = EmptyHeap,
+                     rightHeap = EmptyHeap,
+                     size = s,
+                     state = st} = (EmptyHeap, huftree)
+
+-- cand am cel putin doua noduri
+extractMin heap = (repair (newHeap {hTree = extracted}), hTree heap)
+    where
+        (newHeap, extracted) = lastFromHeap heap
+
+-----------------------------------------------------------------
+--                     HEAP DIN LISTA
+-----------------------------------------------------------------
 
 heapify :: Heap -> [(Char, Int)] -> Heap
-heapify alreadyHeap [] = alreadyHeap
-heapify alreadyHeap (x:xs) = heapify (insertInHeap alreadyHeap x) xs
+heapify = foldl insertInHeap
+
+makeHeap :: [(Char, Int)] -> Heap
+makeHeap = heapify EmptyHeap
+
+-----------------------------------------------------------------
+
+
+
 
 heapify' :: Heap -> [(Char, Int)] -> Heap
-heapify' = foldl insertInHeap
+heapify' alreadyHeap [] = alreadyHeap
+heapify' alreadyHeap (x:xs) = heapify (insertInHeap alreadyHeap x) xs
 
+hp = heapify EmptyHeap [('d',16),('e',9),('f',5), ('a',45),('b',13),('c',12)]
 
+hp0 = heapify EmptyHeap [('d', 16)]
+hp1 = heapify hp0 [('e', 9)]
+hp2 = heapify hp1 [('f', 5)]
+hp3 = heapify hp2 [('a', 45)]
+hp4 = heapify hp3 [('b', 13)]
+hp5 = heapify hp4 [('c', 12)]
+hp6 = heapify hp5 [('x', 15)]
 
-testt l = heapify EmptyHeap l == heapify' EmptyHeap l
+hp6' = heapify' EmptyHeap [('a',2),('b',3),('c',4),('d',1), ('e', 5), ('f', 0), ('g', -1), ('h', 7)]
+
+thp6 = extractMin hp6
+thp5 = extractMin $ fst thp6
+thp4 = extractMin $ fst thp5
+thp3 = extractMin $ fst thp4
+thp2 = extractMin $ fst thp3
+thp1 = extractMin $ fst thp2
+thp0 = extractMin $ fst thp1
 
 {-
 data Dt = Dta {a :: Int, b :: Int} deriving (Eq, Show)
